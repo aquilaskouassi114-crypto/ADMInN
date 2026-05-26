@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SoldesCI — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Nunito',sans-serif;background:#F4F4F4;min-height:100vh}
+input,select,textarea{font-family:'Nunito',sans-serif}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#E8201A!important}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.6}}
+.inp{width:100%;border:2px solid #e0e0e0;border-radius:8px;padding:10px 14px;font-size:0.92rem;font-family:'Nunito',sans-serif}
+.btn-red{background:#E8201A;color:white;border:none;border-radius:10px;padding:13px;font-family:'Nunito',sans-serif;font-weight:900;font-size:0.95rem;cursor:pointer;width:100%;transition:opacity 0.2s}
+.btn-red:hover{opacity:0.88}
+.card{background:white;border-radius:16px;padding:24px;box-shadow:0 2px 14px rgba(0,0,0,0.07);animation:fadeUp 0.3s ease}
+.tab-btn{background:rgba(255,255,255,0.1);color:white;border:none;padding:7px 14px;border-radius:20px;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.8rem;cursor:pointer;transition:background 0.2s}
+.tab-btn.active{background:#E8201A}
+.img-upload{width:130px;height:130px;border:3px dashed #ddd;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;background:#fafafa;transition:border-color 0.2s}
+.img-upload:hover{border-color:#E8201A}
+.product-row{display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #f5f5f5;animation:fadeUp 0.3s ease}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:11px 26px;border-radius:30px;font-weight:800;font-size:0.88rem;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);white-space:nowrap;animation:fadeUp 0.3s ease;display:none}
+</style>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" style="min-height:100vh;background:linear-gradient(135deg,#111 0%,#1a0505 60%,#E8201A 100%);display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:white;border-radius:20px;padding:40px 32px;width:100%;max-width:380px;box-shadow:0 30px 80px rgba(0,0,0,0.5)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:2.8rem;letter-spacing:3px;color:#E8201A">Soldes<span style="color:#111">CI</span></div>
+      <div style="font-size:0.78rem;color:#aaa;margin-top:4px;font-weight:800;letter-spacing:2px">PANEL ADMINISTRATION</div>
+    </div>
+    <label style="display:block;font-weight:800;font-size:0.82rem;margin-bottom:7px;color:#555">🔐 MOT DE PASSE</label>
+    <input type="password" id="passInput" class="inp" placeholder="Entrez le mot de passe" style="margin-bottom:6px" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="passErr" style="color:#E8201A;font-size:0.8rem;font-weight:700;margin-bottom:10px;display:none">Mot de passe incorrect ❌</div>
+    <button class="btn-red" onclick="doLogin()" style="margin-top:8px">Se connecter →</button>
+    <p style="text-align:center;font-size:0.72rem;color:#ccc;margin-top:16px">SoldesCI · Abidjan, Côte d'Ivoire</p>
+  </div>
+</div>
+
+<!-- ADMIN PAGE -->
+<div id="adminPage" style="display:none">
+
+  <!-- HEADER -->
+  <div style="background:#111;padding:0 20px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,0.4)">
+    <div style="max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:60px;gap:10px">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:2px;color:#FFD700;flex-shrink:0">
+        ⚙️ SoldesCI <span style="color:rgba(255,255,255,0.3);font-size:0.9rem;font-family:'Nunito',sans-serif;font-weight:600">Admin</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="tab-btn active" id="tabArticles" onclick="switchTab('articles')">📦 Articles</button>
+        <button class="tab-btn" id="tabCommandes" onclick="switchTab('commandes')">🛒 Commandes <span id="pendingBadge" style="display:none;background:#FFD700;color:#111;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:900;margin-left:4px"></span></button>
+        <button class="tab-btn" id="tabStats" onclick="switchTab('stats')">📊 Stats</button>
+        <button class="tab-btn" onclick="doLogout()">Déco</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="max-width:960px;margin:0 auto;padding:24px 16px">
+
+    <!-- TAB ARTICLES -->
+    <div id="tabContent_articles">
+      <!-- FORM -->
+      <div class="card" style="margin-bottom:20px">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:2px;margin-bottom:20px;display:flex;align-items:center;gap:10px">
+          <span id="formTitle">➕ Nouvel article</span>
+          <span id="savingSpinner" style="display:none;width:18px;height:18px;border:3px solid #eee;border-top-color:#E8201A;border-radius:50%;animation:spin 0.7s linear infinite"></span>
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;margin-bottom:18px;align-items:start">
+          <!-- Image -->
+          <div>
+            <div style="font-weight:800;font-size:0.78rem;margin-bottom:8px;color:#888;letter-spacing:1px">PHOTO DU PRODUIT</div>
+            <input type="file" id="imgFile" accept="image/*" style="display:none" onchange="handleImageFile(this)">
+            <div id="imgPreviewWrap" style="display:none;position:relative;display:none">
+              <img id="imgPreview" style="width:130px;height:130px;object-fit:cover;border-radius:10px;border:3px solid #E8201A;display:block">
+              <button onclick="clearImage()" style="position:absolute;top:-8px;right:-8px;background:#E8201A;color:white;border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-weight:900;font-size:0.85rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.3)">✕</button>
+              <button onclick="document.getElementById('imgFile').click()" style="margin-top:6px;width:130px;background:#f0f0f0;border:none;border-radius:8px;padding:6px;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.75rem;cursor:pointer;display:block">🔄 Changer</button>
+            </div>
+            <div id="imgPlaceholder" class="img-upload" onclick="document.getElementById('imgFile').click()">
+              <div style="font-size:2.5rem;margin-bottom:6px">📷</div>
+              <div style="font-size:0.72rem;font-weight:800;color:#aaa;text-align:center;line-height:1.4">Appuie pour<br>ajouter une photo</div>
+            </div>
+          </div>
+          <!-- Fields -->
+          <div style="display:grid;gap:14px">
+            <div>
+              <label style="display:block;font-weight:800;font-size:0.78rem;margin-bottom:6px;color:#888;letter-spacing:1px">NOM DE L'ARTICLE *</label>
+              <input id="fName" class="inp" placeholder="Ex: Robe en wax colorée taille M/L">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div>
+                <label style="display:block;font-weight:800;font-size:0.78rem;margin-bottom:6px;color:#888;letter-spacing:1px">CATÉGORIE *</label>
+                <select id="fCat" class="inp" style="cursor:pointer">
+                  <option>Habits</option><option>Cosmétiques</option><option>Alimentation</option>
+                  <option>Accessoires</option><option>Maison</option><option>Électronique</option><option>Autre</option>
+                </select>
+              </div>
+              <div>
+                <label style="display:block;font-weight:800;font-size:0.78rem;margin-bottom:6px;color:#888;letter-spacing:1px">PRIX DE VENTE (FCFA) *</label>
+                <input id="fPrice" class="inp" type="number" placeholder="5000">
+              </div>
+            </div>
+            <div>
+              <label style="display:block;font-weight:800;font-size:0.78rem;margin-bottom:6px;color:#888;letter-spacing:1px">ANCIEN PRIX — badge -X% (optionnel)</label>
+              <input id="fOldPrice" class="inp" type="number" placeholder="8000">
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:18px">
+          <label style="display:block;font-weight:800;font-size:0.78rem;margin-bottom:6px;color:#888;letter-spacing:1px">DESCRIPTION (optionnel)</label>
+          <textarea id="fDesc" class="inp" rows="2" placeholder="Taille disponible, couleur, matière..." style="resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-red" id="saveBtn" onclick="saveProduct()">🚀 Publier l'article</button>
+          <button id="cancelBtn" onclick="cancelEdit()" style="display:none;background:#f0f0f0;border:none;padding:13px 20px;border-radius:10px;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer;font-size:0.9rem">Annuler</button>
+        </div>
+      </div>
+
+      <!-- FILTER -->
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <input id="searchQ" oninput="renderProducts()" placeholder="🔍 Rechercher un article..." style="flex:1;min-width:180px;border:2px solid #e0e0e0;border-radius:30px;padding:9px 16px;font-family:'Nunito',sans-serif;font-size:0.88rem;outline:none;background:white">
+        <select id="filterCat" onchange="renderProducts()" style="border:2px solid #e0e0e0;border-radius:30px;padding:9px 14px;font-family:'Nunito',sans-serif;font-size:0.88rem;cursor:pointer;outline:none;background:white">
+          <option>Tous</option><option>Habits</option><option>Cosmétiques</option><option>Alimentation</option>
+          <option>Accessoires</option><option>Maison</option><option>Électronique</option><option>Autre</option>
+        </select>
+        <button onclick="loadAll()" style="background:white;border:2px solid #e0e0e0;border-radius:30px;padding:9px 16px;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.85rem;cursor:pointer">🔄 Actualiser</button>
+      </div>
+
+      <!-- LIST -->
+      <div style="background:white;border-radius:16px;box-shadow:0 2px 14px rgba(0,0,0,0.07);overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:2px solid #f5f5f5;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;display:flex;align-items:center;justify-content:space-between">
+          <span>📋 Articles publiés</span>
+          <span id="productCount" style="font-family:'Nunito',sans-serif;font-size:0.82rem;font-weight:700;color:#aaa"></span>
+        </div>
+        <div id="productList"><div style="text-align:center;padding:40px;color:#aaa">Chargement...</div></div>
+      </div>
+    </div>
+
+    <!-- TAB COMMANDES -->
+    <div id="tabContent_commandes" style="display:none">
+      <div style="background:white;border-radius:16px;box-shadow:0 2px 14px rgba(0,0,0,0.07);overflow:hidden">
+        <div style="padding:14px 20px;border-bottom:2px solid #f5f5f5;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;display:flex;align-items:center;justify-content:space-between">
+          <span>🛒 Commandes reçues</span>
+          <button onclick="loadAll()" style="background:#f5f5f5;border:none;border-radius:20px;padding:6px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:0.78rem;cursor:pointer">🔄 Actualiser</button>
+        </div>
+        <div id="orderList"><div style="text-align:center;padding:60px 20px;color:#aaa"><div style="font-size:3rem;margin-bottom:10px">📭</div><p style="font-weight:700">Aucune commande pour l'instant.</p></div></div>
+      </div>
+    </div>
+
+    <!-- TAB STATS -->
+    <div id="tabContent_stats" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:20px" id="statsGrid"></div>
+      <div style="background:white;border-radius:14px;padding:20px;box-shadow:0 2px 14px rgba(0,0,0,0.07)">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:2px;margin-bottom:16px">📊 ARTICLES PAR CATÉGORIE</div>
+        <div id="catStats"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div id="delOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:5000;align-items:center;justify-content:center;padding:20px">
+  <div style="background:white;border-radius:16px;padding:28px;max-width:320px;width:100%;text-align:center;animation:fadeUp 0.3s ease">
+    <div style="font-size:2.5rem;margin-bottom:10px">🗑️</div>
+    <div style="font-weight:800;margin-bottom:6px;font-size:1rem">Supprimer cet article ?</div>
+    <div id="delName" style="font-size:0.85rem;color:#888;margin-bottom:20px"></div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeDelConfirm()" style="flex:1;background:#f0f0f0;border:none;padding:12px;border-radius:10px;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer">Annuler</button>
+      <button onclick="confirmDelete()" style="flex:1;background:#E8201A;color:white;border:none;padding:12px;border-radius:10px;font-family:'Nunito',sans-serif;font-weight:800;cursor:pointer">Supprimer</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="toast"></div>
+
+<script>
+const ADMIN_PASS = "soldesci2024";
+const CATS = ["Habits","Cosmétiques","Alimentation","Accessoires","Maison","Électronique","Autre"];
+const CAT_EMOJI = {"Habits":"👗","Cosmétiques":"💄","Alimentation":"🍱","Accessoires":"👜","Maison":"🏠","Électronique":"📱","Autre":"🛍️"};
+const STORAGE_KEY_PRODUCTS = "soldesci_products";
+const STORAGE_KEY_ORDERS = "soldesci_orders";
+
+let products = [];
+let orders = [];
+let editId = null;
+let deleteId = null;
+let imgData = "";
+let currentTab = "articles";
+
+// ---- STORAGE (localStorage) ----
+function loadData() {
+  try {
+    const p = localStorage.getItem(STORAGE_KEY_PRODUCTS);
+    products = p ? JSON.parse(p) : getDemo();
+    if (!p) saveProducts();
+    const o = localStorage.getItem(STORAGE_KEY_ORDERS);
+    orders = o ? JSON.parse(o) : [];
+  } catch(e) { products = getDemo(); orders = []; }
+}
+
+function saveProducts() {
+  localStorage.setItem(STORAGE_KEY_PRODUCTS, JSON.stringify(products));
+  // Also save to a shared key readable by client
+  localStorage.setItem("soldesci_products_shared", JSON.stringify(products));
+}
+
+function saveOrders() {
+  localStorage.setItem(STORAGE_KEY_ORDERS, JSON.stringify(orders));
+  localStorage.setItem("soldesci_orders_shared", JSON.stringify(orders));
+}
+
+function getDemo() {
+  return [
+    {id:1,name:"Robe africaine wax colorée",cat:"Habits",price:4500,oldPrice:8000,img:"",desc:"Belle robe en tissu wax."},
+    {id:2,name:"Crème éclaircissante naturelle",cat:"Cosmétiques",price:2000,oldPrice:4000,img:"",desc:"Crème douce sans danger."},
+    {id:3,name:"Sac à main tendance",cat:"Accessoires",price:3500,oldPrice:6000,img:"",desc:""},
+    {id:4,name:"Écouteurs Bluetooth sans fil",cat:"Électronique",price:5000,oldPrice:10000,img:"",desc:""},
+  ];
+}
+
+// ---- AUTH ----
+function doLogin() {
+  const p = document.getElementById("passInput").value.trim();
+  if (p === ADMIN_PASS) {
+    document.getElementById("loginPage").style.display = "none";
+    document.getElementById("adminPage").style.display = "block";
+    document.getElementById("passErr").style.display = "none";
+    loadAll();
+  } else {
+    document.getElementById("passErr").style.display = "block";
+    document.getElementById("passInput").focus();
+  }
+}
+
+function doLogout() {
+  document.getElementById("loginPage").style.display = "flex";
+  document.getElementById("adminPage").style.display = "none";
+  document.getElementById("passInput").value = "";
+}
+
+// ---- TABS ----
+function switchTab(tab) {
+  currentTab = tab;
+  ["articles","commandes","stats"].forEach(t => {
+    document.getElementById("tabContent_"+t).style.display = t===tab?"block":"none";
+    document.getElementById("tab"+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle("active", t===tab);
+  });
+  if (tab==="stats") renderStats();
+  if (tab==="commandes") renderOrders();
+}
+
+// ---- LOAD ----
+function loadAll() {
+  loadData();
+  renderProducts();
+  renderOrders();
+  updatePendingBadge();
+  if (currentTab==="stats") renderStats();
+  showToast("🔄 Actualisé !", "ok");
+}
+
+// ---- IMAGE ----
+function handleImageFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 3 * 1024 * 1024) { alert("Image trop grande (max 3MB). Compresse-la d'abord."); return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    imgData = e.target.result;
+    document.getElementById("imgPreview").src = imgData;
+    document.getElementById("imgPreviewWrap").style.display = "block";
+    document.getElementById("imgPlaceholder").style.display = "none";
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  imgData = "";
+  document.getElementById("imgFile").value = "";
+  document.getElementById("imgPreviewWrap").style.display = "none";
+  document.getElementById("imgPlaceholder").style.display = "flex";
+}
+
+// ---- FORM ----
+function resetForm() {
+  document.getElementById("fName").value = "";
+  document.getElementById("fCat").value = "Habits";
+  document.getElementById("fPrice").value = "";
+  document.getElementById("fOldPrice").value = "";
+  document.getElementById("fDesc").value = "";
+  clearImage();
+  editId = null;
+  document.getElementById("formTitle").textContent = "➕ Nouvel article";
+  document.getElementById("saveBtn").textContent = "🚀 Publier l'article";
+  document.getElementById("cancelBtn").style.display = "none";
+}
+
+function cancelEdit() { resetForm(); }
+
+function startEdit(id) {
+  const p = products.find(x=>x.id===id);
+  if (!p) return;
+  editId = id;
+  document.getElementById("fName").value = p.name;
+  document.getElementById("fCat").value = p.cat;
+  document.getElementById("fPrice").value = p.price;
+  document.getElementById("fOldPrice").value = p.oldPrice || "";
+  document.getElementById("fDesc").value = p.desc || "";
+  if (p.img) {
+    imgData = p.img;
+    document.getElementById("imgPreview").src = p.img;
+    document.getElementById("imgPreviewWrap").style.display = "block";
+    document.getElementById("imgPlaceholder").style.display = "none";
+  } else { clearImage(); }
+  document.getElementById("formTitle").textContent = "✏️ Modifier l'article";
+  document.getElementById("saveBtn").textContent = "💾 Enregistrer les modifications";
+  document.getElementById("cancelBtn").style.display = "inline-block";
+  window.scrollTo({top:0,behavior:"smooth"});
+  switchTab("articles");
+}
+
+function saveProduct() {
+  const name = document.getElementById("fName").value.trim();
+  const price = parseInt(document.getElementById("fPrice").value);
+  const oldPrice = parseInt(document.getElementById("fOldPrice").value) || null;
+  const cat = document.getElementById("fCat").value;
+  const desc = document.getElementById("fDesc").value.trim();
+  if (!name) { showToast("Le nom est obligatoire","err"); return; }
+  if (!price || isNaN(price)) { showToast("Le prix est obligatoire","err"); return; }
+  const sp = document.getElementById("savingSpinner");
+  sp.style.display = "inline-block";
+  setTimeout(() => {
+    const p = { id: editId || Date.now(), name, cat, price, oldPrice, img: imgData, emoji: CAT_EMOJI[cat]||"📦", desc };
+    if (editId) {
+      products = products.map(x=>x.id===editId?p:x);
+      showToast("✅ Article mis à jour !");
+    } else {
+      products.push(p);
+      showToast("✅ Article publié !");
+    }
+    saveProducts();
+    resetForm();
+    renderProducts();
+    sp.style.display = "none";
+  }, 400);
+}
+
+// ---- RENDER PRODUCTS ----
+function renderProducts() {
+  const q = (document.getElementById("searchQ")?.value||"").toLowerCase();
+  const fc = document.getElementById("filterCat")?.value || "Tous";
+  const filtered = products.filter(p=>{
+    return (fc==="Tous"||p.cat===fc) && p.name.toLowerCase().includes(q);
+  });
+  document.getElementById("productCount").textContent = filtered.length+" article"+(filtered.length!==1?"s":"");
+  const list = document.getElementById("productList");
+  if (!filtered.length) { list.innerHTML='<div style="text-align:center;padding:40px;color:#aaa;font-size:0.9rem">Aucun article. Ajoutes-en un !</div>'; return; }
+  list.innerHTML = filtered.map((p,i) => `
+    <div class="product-row" style="${i===filtered.length-1?"border-bottom:none":""}">
+      <div style="width:58px;height:58px;border-radius:10px;background:#f5f5f5;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.9rem">
+        ${p.img?`<img src="${p.img}" style="width:100%;height:100%;object-fit:cover">`:(p.emoji||"📦")}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.name}</div>
+        <div style="font-size:0.75rem;color:#aaa;margin-top:2px">${p.cat} · <span style="color:#E8201A;font-weight:700">${fmt(p.price)} FCFA</span>${p.oldPrice?`<span style="color:#ddd;text-decoration:line-through;margin-left:6px">${fmt(p.oldPrice)}</span>`:""}</div>
+        ${p.desc?`<div style="font-size:0.72rem;color:#bbb;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.desc}</div>`:""}
+      </div>
+      <div style="display:flex;gap:8px;flex-shrink:0">
+        <button onclick="startEdit(${p.id})" style="background:#f0f8ff;color:#0066cc;border:2px solid #cce0ff;border-radius:8px;padding:6px 12px;font-family:'Nunito',sans-serif;font-weight:800;font-size:0.78rem;cursor:pointer">✏️ Modifier</button>
+        <button onclick="askDelete(${p.id},'${p.name.replace(/'/g,"\\'")}');" style="background:#fff0f0;color:#E8201A;border:2px solid #ffcccc;border-radius:8px;padding:6px 10px;font-family:'Nunito',sans-serif;font-weight:800;font-size:0.78rem;cursor:pointer">🗑️</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+// ---- DELETE ----
+function askDelete(id, name) {
+  deleteId = id;
+  document.getElementById("delName").textContent = name;
+  document.getElementById("delOverlay").style.display = "flex";
+}
+function closeDelConfirm() { document.getElementById("delOverlay").style.display = "none"; deleteId = null; }
+function confirmDelete() {
+  products = products.filter(x=>x.id!==deleteId);
+  saveProducts();
+  renderProducts();
+  closeDelConfirm();
+  showToast("🗑️ Article supprimé");
+}
+
+// ---- ORDERS ----
+function renderOrders() {
+  const list = document.getElementById("orderList");
+  if (!orders.length) {
+    list.innerHTML='<div style="text-align:center;padding:60px 20px;color:#aaa"><div style="font-size:3rem;margin-bottom:10px">📭</div><p style="font-weight:700">Aucune commande pour l\'instant.</p></div>';
+    return;
+  }
+  list.innerHTML = [...orders].reverse().map((o,i) => `
+    <div style="padding:16px 20px;border-bottom:${i<orders.length-1?"1px solid #f5f5f5":"none"}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-weight:900;font-size:0.92rem">Commande #${String(o.id).slice(-6)}</div>
+        <span style="background:${o.status==="livré"?"#e8f8ed":"#fff8e0"};color:${o.status==="livré"?"#1DB954":"#FF6B00"};padding:4px 12px;border-radius:20px;font-weight:800;font-size:0.75rem">${o.status==="livré"?"✅ Livré":"⏳ En attente"}</span>
+      </div>
+      <div style="font-size:0.85rem;color:#555;margin-bottom:4px"><strong>${o.name}</strong> · 📞 ${o.phone}</div>
+      <div style="font-size:0.82rem;color:#888;margin-bottom:6px">📍 ${o.adresse} · ${o.date}</div>
+      <div style="font-size:0.8rem;color:#aaa;margin-bottom:10px">${(o.items||[]).map(it=>`${it.name} ×${it.qty}`).join(" · ")}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:#E8201A;letter-spacing:1px">${fmt(o.total)} FCFA</div>
+        ${o.status!=="livré"?`<button onclick="markDone(${o.id})" style="background:#1DB954;color:white;border:none;padding:8px 18px;border-radius:8px;font-family:'Nunito',sans-serif;font-weight:800;font-size:0.82rem;cursor:pointer">✅ Marquer livré</button>`:""}
+      </div>
+    </div>
+  `).join("");
+  updatePendingBadge();
+}
+
+function markDone(id) {
+  orders = orders.map(o=>o.id===id?{...o,status:"livré"}:o);
+  saveOrders();
+  renderOrders();
+  showToast("✅ Commande livrée !");
+}
+
+function updatePendingBadge() {
+  const n = orders.filter(o=>o.status==="en attente").length;
+  const b = document.getElementById("pendingBadge");
+  if (b) { b.textContent = n; b.style.display = n>0?"inline-flex":"none"; }
+}
+
+// ---- STATS ----
+function renderStats() {
+  const delivered = orders.filter(o=>o.status==="livré");
+  const revenu = delivered.reduce((s,o)=>s+o.total,0);
+  const stats = [
+    {icon:"📦",val:products.length,label:"Articles publiés",color:"#E8201A"},
+    {icon:"🛒",val:orders.length,label:"Commandes reçues",color:"#FF6B00"},
+    {icon:"✅",val:delivered.length,label:"Livrées",color:"#1DB954"},
+    {icon:"💰",val:fmt(revenu)+" FCFA",label:"Revenu total",color:"#FFD700",dark:true},
+  ];
+  document.getElementById("statsGrid").innerHTML = stats.map(s=>`
+    <div style="background:${s.dark?"#111":"white"};border-radius:14px;padding:20px;box-shadow:0 2px 14px rgba(0,0,0,0.07);text-align:center">
+      <div style="font-size:2.2rem;margin-bottom:6px">${s.icon}</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:1.8rem;color:${s.color};letter-spacing:1px">${s.val}</div>
+      <div style="font-size:0.75rem;color:${s.dark?"rgba(255,255,255,0.45)":"#aaa"};font-weight:700;margin-top:2px">${s.label}</div>
+    </div>
+  `).join("");
+  document.getElementById("catStats").innerHTML = CATS.map(c=>{
+    const n = products.filter(p=>p.cat===c).length;
+    if (!n) return "";
+    const pct = Math.round(n/products.length*100);
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:700;margin-bottom:4px">
+          <span>${CAT_EMOJI[c]||"📦"} ${c}</span><span style="color:#aaa">${n} article${n>1?"s":""}</span>
+        </div>
+        <div style="background:#f0f0f0;border-radius:10px;height:8px;overflow:hidden">
+          <div style="background:#E8201A;height:100%;width:${pct}%;border-radius:10px;transition:width 0.6s ease"></div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+// ---- UTILS ----
+function fmt(n) { return Number(n).toLocaleString("fr-FR"); }
+function showToast(msg, type="ok") {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = type==="err" ? "#E8201A" : "#1DB954";
+  t.style.display = "block";
+  setTimeout(()=>t.style.display="none", 3000);
+}
+
+// ---- INIT ----
+loadData();
+document.getElementById("passInput").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+
+// Auto-refresh orders every 30s
+setInterval(() => {
+  const o = localStorage.getItem(STORAGE_KEY_ORDERS);
+  if (o) { orders = JSON.parse(o); updatePendingBadge(); if(currentTab==="commandes") renderOrders(); }
+}, 30000);
+</script>
+</body>
+</html>
